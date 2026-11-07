@@ -1,0 +1,11 @@
+/rootfs-arm64/
+/rootfs-arm64.before-apt/
+/rootfs-arm64.partial-merge/
+/debian-seed-arm64/
+/iso-work/
+/build/
+/sources/
+*.iso
+*.cpio
+*.cpio.gz
+/kernel-arm64
