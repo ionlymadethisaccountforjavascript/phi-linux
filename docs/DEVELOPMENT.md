@@ -29,11 +29,52 @@ Debian — so what you install and configure is what ends up on the phone.
 
 | | Needs | Start time | Can test |
 | --- | --- | --- | --- |
-| **1. chroot** | nothing but the build image | instant | packages, systemd units, `phi-moded`, Plasma config |
-| **2. OCI container** | binfmt on the host (AUR on Arch) | ~1 s | + `podman ps`, networking, volumes, systemd as PID 1 |
-| **3. QEMU VM** | `make disk` | 30-60 s boot | kernel, DRM, suspend, cpufreq/EAS, USB-C |
+| **chroot** | nothing but the build image | instant | packages, systemd units, `phi-moded`, Plasma config |
+| **persistent container** | binfmt on the host (AUR on Arch) | ~1 s | + `podman ps`, networking, volumes, systemd as PID 1, `exec` |
+| **QEMU VM** | `make disk` | 30-60 s boot | kernel, DRM, suspend, cpufreq/EAS, USB-C |
 
-### Tier 1 — chroot: works on Arch today, no AUR, nothing installed
+### Persistent container — `podman exec` into it forever
+
+One named container running systemd, changes kept until you delete it. This is
+the workflow most people already use on Fedora; it works the same on Arch, with
+one extra package.
+
+```sh
+# once
+scripts/phi-container.sh rootfs          # build build/rootfs (~30 min)
+sudo pacman -S podman
+yay -S qemu-user-static                  # Arch: AUR. Fedora: sudo dnf install
+sudo systemctl restart systemd-binfmt    # registers qemu-aarch64
+
+# every session
+scripts/phi-pod.sh up                    # import + create + start (idempotent)
+scripts/phi-pod.sh shell                 # == podman exec -it phi bash
+scripts/phi-pod.sh status
+scripts/phi-pod.sh stop                  # survives; `up` or `podman start` resumes
+```
+
+**Why it "just worked" on Fedora:** Fedora ships `qemu-user-static` in its
+repos and the binfmt handler is registered for you. Arch keeps the same package
+in the AUR, and the handler only appears after `systemd-binfmt` is restarted.
+That is the entire difference — an arm64 container start is a real `exec` of an
+arm64 binary, so the kernel must recognise it before any runtime is involved.
+`scripts/phi-pod.sh doctor` prints exactly what is missing.
+
+Where your changes live:
+
+| Action | Effect |
+| --- | --- |
+| edit inside the container | stays in the container filesystem |
+| `scripts/phi-pod.sh export` | merges the container into `build/rootfs` (rsync, or tar if rsync is absent) |
+| `scripts/phi-pod.sh commit [tag]` | snapshot the container as an image, for rollback |
+| `make disk` | turns `build/rootfs` into the bootable image |
+| `scripts/phi-pod.sh rm` | destroys it; unexported changes are gone |
+
+The loop that matters: **exec → change → export → make disk → make run**. That
+is the same edit-compile-boot cycle as a normal distro, with the arm64 kernel
+out of the way until you need it.
+
+### No-AUR alternative — chroot (nothing installed on the host)
 
 ```sh
 scripts/phi-container.sh rootfs          # once, ~30 min, builds build/rootfs
@@ -52,7 +93,7 @@ If you *do* have binfmt registered (tier 2 setup below), the same command runs
 at native-ish speed instead of through an explicit emulator. Same script, same
 interface.
 
-### Tier 2 — a real OCI container (podman on Arch)
+### Plain OCI image, without the persistent container
 
 Needs `binfmt_misc`, because the kernel has to recognise an arm64 ELF before
 any runtime can start it:
@@ -77,7 +118,7 @@ If you only want a *stock* Debian arm64 shell rather than your own rootfs:
 podman run --rm -it --arch arm64 debian:trixie bash    # still needs binfmt
 ```
 
-### Tier 3 — the actual system, in a VM
+### The actual system, in a VM
 
 ```sh
 make disk && make initramfs && make run

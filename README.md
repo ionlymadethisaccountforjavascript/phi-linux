@@ -49,7 +49,9 @@ under a second, with no VM and no binfmt setup:
 ```sh
 sudo scripts/phi-chroot.sh                 # chroot into build/rootfs
 sudo scripts/phi-chroot.sh --cmd 'dpkg -l' # one command, no shell
-scripts/phi-image.sh --run                 # or import it as an OCI image
+
+scripts/phi-pod.sh up && scripts/phi-pod.sh shell   # persistent podman container
+scripts/phi-pod.sh export && make disk              # bake changes into the image
 ```
 
 For a real phone:
