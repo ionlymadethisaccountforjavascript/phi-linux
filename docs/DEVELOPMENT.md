@@ -22,6 +22,80 @@ scripts/phi-container.sh shell    # interactive shell, repo mounted at /work
 If you are on an arm64 Linux machine, skip the container entirely — you have
 the best setup and section A applies.
 
+## Running your Debian system in a container
+
+Three tiers, cheapest first. All of them run **your** `build/rootfs`, not stock
+Debian — so what you install and configure is what ends up on the phone.
+
+| | Needs | Start time | Can test |
+| --- | --- | --- | --- |
+| **1. chroot** | nothing but the build image | instant | packages, systemd units, `phi-moded`, Plasma config |
+| **2. OCI container** | binfmt on the host (AUR on Arch) | ~1 s | + `podman ps`, networking, volumes, systemd as PID 1 |
+| **3. QEMU VM** | `make disk` | 30-60 s boot | kernel, DRM, suspend, cpufreq/EAS, USB-C |
+
+### Tier 1 — chroot: works on Arch today, no AUR, nothing installed
+
+```sh
+scripts/phi-container.sh rootfs          # once, ~30 min, builds build/rootfs
+sudo scripts/phi-chroot.sh               # a shell in your Debian system
+sudo scripts/phi-chroot.sh --cmd 'dpkg -l | grep plasma'
+sudo scripts/phi-chroot.sh --cmd 'systemctl --version'
+```
+
+Why this works without `qemu-user-static` on Arch: if the host cannot execute
+arm64 binaries, the script re-executes itself inside the build container, which
+ships its own `qemu-aarch64-static`. It also cleans up after itself — the
+emulator is removed from the rootfs on exit, so it never ends up in a disk
+image or on the phone.
+
+If you *do* have binfmt registered (tier 2 setup below), the same command runs
+at native-ish speed instead of through an explicit emulator. Same script, same
+interface.
+
+### Tier 2 — a real OCI container (podman on Arch)
+
+Needs `binfmt_misc`, because the kernel has to recognise an arm64 ELF before
+any runtime can start it:
+
+```sh
+yay -S qemu-user-static
+sudo systemctl restart systemd-binfmt
+ls /proc/sys/fs/binfmt_misc/qemu-aarch64        # expect: enabled
+
+scripts/phi-image.sh --run                      # import + shell
+scripts/phi-image.sh --run --systemd            # systemd as PID 1
+scripts/phi-image.sh                            # print the run commands only
+
+# afterwards, it is just an image:
+podman run --rm -it --arch arm64 phi-rootfs:latest
+podman run --rm -it --arch arm64 --privileged --systemd=always phi-rootfs:latest
+```
+
+If you only want a *stock* Debian arm64 shell rather than your own rootfs:
+
+```sh
+podman run --rm -it --arch arm64 debian:trixie bash    # still needs binfmt
+```
+
+### Tier 3 — the actual system, in a VM
+
+```sh
+make disk && make initramfs && make run
+```
+
+### What a container cannot test
+
+Containers share the **host** kernel. The arm64 *userspace* runs; the arm64
+*kernel* does not. So:
+
+- no kernel modules, no device tree, no panel/touch drivers
+- no suspend, no `s2idle`, no wakeup sources — the whole of `docs/POWER.md`
+- no DRM hotplug or USB-C altmode, so `phi-moded` can be exercised but only
+  with `--simulate` fixtures, not real hardware events
+- systemd as PID 1 works but is not a boot: no initramfs, no `switch_root`
+
+Use tier 1/2 to iterate on the OS, tier 3 or a phone to test the machine.
+
 ## Which host are you on?
 
 | Host | Rootfs build | `make run` (QEMU) | Recommendation |
@@ -187,6 +261,8 @@ container started. Run `scripts/deploy-device.sh` directly on the host.
 | `Release file expired` | clock skew in the container | restart Docker, or `sudo hwclock -s` |
 | Arch: `target not found: debootstrap` | AUR-only package | `yay -S debootstrap`, or use the container |
 | Arch: `no arm64-efi GRUB platform modules` | Arch `grub` is x86-only | `scripts/phi-container.sh iso`, or use `make run` |
+| `podman run --arch arm64` fails: `exec format error` | no binfmt handler | `yay -S qemu-user-static` + restart `systemd-binfmt`, or use `scripts/phi-chroot.sh` |
+| `chroot: cannot run /bin/bash` in tier 1 | rootfs has no arm64 `bash`/emulator | rebuild the rootfs (`scripts/phi-container.sh rootfs`) |
 | podman: `SELinux is preventing access` | missing mount label | the wrapper adds `:z`; pass `--engine podman` explicitly if autodetect missed |
 | Apple Silicon: everything is slow | you built with `--platform linux/amd64` | rebuild without it |
 

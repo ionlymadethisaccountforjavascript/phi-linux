@@ -43,6 +43,15 @@ On a non-arm64 host, prefix with the build container:
 `scripts/phi-container.sh rootfs`, `… disk`, `… run`. See
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
+Once `build/rootfs` exists you can get a shell inside your own Debian system in
+under a second, with no VM and no binfmt setup:
+
+```sh
+sudo scripts/phi-chroot.sh                 # chroot into build/rootfs
+sudo scripts/phi-chroot.sh --cmd 'dpkg -l' # one command, no shell
+scripts/phi-image.sh --run                 # or import it as an OCI image
+```
+
 For a real phone:
 
 ```sh
@@ -88,7 +97,7 @@ phi-moded clear
 ```
 Makefile                 build entry points (vm + device tracks)
 initramfs/init           PID 1: modules, find phi.root=, switch_root, rescue shell
-scripts/                 build, deploy, power reporting
+scripts/                 build, deploy, power reporting, chroot/image entry
 moded/phi_moded/         mode manager: detect / policy / actions / notify
 moded/tests/             35 unit tests, no hardware required
 systemd/                 posture targets, daemon unit, user session bridge

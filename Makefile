@@ -36,6 +36,7 @@ help:
 	@echo "  make iso                   build a bootable ISO (VM track)"
 	@echo "  make rootfs                debootstrap an arm64 Debian rootfs"
 	@echo "  make disk                  pack build/rootfs into a bootable ext4 image"
+	@echo "  make shell                 shell inside build/rootfs (chroot, no VM)"
 	@echo "  make bootimg DEVICE=<codename>      pack kernel+dtb+initramfs -> boot.img"
 	@echo "  make deploy DEVICE=<codename>       (dry-run) push boot.img to a device"
 	@echo "  make kernel-config         merge Phi's kernel config fragments"
@@ -96,6 +97,10 @@ kernel-config:
 disk:
 	@scripts/mkdisk.sh --rootfs $(ROOTFS) --out $(DISK)
 
+# Fastest loop for userspace work: your Debian system, no VM, no boot.
+shell:
+	@scripts/phi-chroot.sh
+
 rootfs: | $(BUILD)
 	@scripts/mkrootfs.sh --arch $(ARCH) --suite $(SUITE) --mirror $(MIRROR) \
 		--out $(ROOTFS)
@@ -118,4 +123,4 @@ $(BUILD):
 clean:
 	@rm -rf $(BUILD)
 
-.PHONY: help deps check initramfs iso run bootimg deploy rootfs disk kernel-config power test container clean
+.PHONY: help deps check initramfs iso run bootimg deploy rootfs disk shell kernel-config power test container clean

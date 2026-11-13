@@ -25,6 +25,7 @@ usage: phi-container.sh [command] [-- args...]
   run              make run (QEMU; needs a tty)
   rootfs           make rootfs (runs as root, fixes ownership afterwards)
   disk             make disk (pack build/rootfs into an ext4 image)
+  root -- <cmd...> run a command as root with --privileged (debootstrap, chroot)
   make <target>    any make target
   build            (re)build the container image
 
@@ -147,6 +148,11 @@ case "$SUBCOMMAND" in
             chown -R "${PHI_HOST_UID}:${PHI_HOST_GID}" build 2>/dev/null || true
             exit $rc
         '
+        ;;
+    root)
+        # Drop an optional leading --, so `root -- script.sh args` works.
+        [[ "${1:-}" == "--" ]] && shift
+        run_container root "$@"
         ;;
     make)
         run_container user make "$@"
