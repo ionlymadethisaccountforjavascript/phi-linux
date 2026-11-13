@@ -39,6 +39,39 @@ One named container running systemd, changes kept until you delete it. This is
 the workflow most people already use on Fedora; it works the same on Arch, with
 one extra package.
 
+#### Raw podman, no script
+
+You do not need `phi-pod.sh`. Two things are non-obvious, and neither is a
+wrapper: podman cannot run a *directory*, so the rootfs has to be imported as
+an image first, and the image has to be arm64 for the system inside to be arm64.
+
+```sh
+# 1. once: the rootfs directory becomes an image
+tar -C build/rootfs -c . | podman import --arch arm64 - phi-rootfs:latest
+
+# 2. start it, detached, with systemd as PID 1
+podman run -d --name phi --hostname phi-linux --arch arm64 \
+    --privileged --systemd=always -v "$PWD:/work:z" phi-rootfs:latest /sbin/init
+
+# 3. from then on
+podman exec -it phi bash
+podman ps
+podman stop phi && podman start phi
+podman rm -f phi
+```
+
+Getting changes back out, which is the only part where a one-liner is genuinely
+annoying:
+
+```sh
+podman export phi -o build/phi.tar
+tar -xf build/phi.tar -C build/rootfs \
+    --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./run
+```
+
+`phi-pod.sh` exists for that (`export` merges properly, keeps rsync's deletion
+tracking) and to remember the flags. Skipping it is fine.
+
 ```sh
 # once
 scripts/phi-container.sh rootfs          # build build/rootfs (~30 min)

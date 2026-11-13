@@ -9,6 +9,11 @@
 # Changes live in the container until you remove it. `export` bakes them back
 # into build/rootfs so `make disk` produces a bootable image with them in.
 #
+# This script is convenience, not a requirement: the same thing is three plain
+# podman commands (tar | podman import, podman run -d, podman exec), documented
+# in docs/DEVELOPMENT.md. It exists to remember the flags and to make `export`
+# back into build/rootfs safe.
+#
 # The one host requirement is binfmt_misc: a container start is a real exec of
 # an arm64 ELF, so the kernel has to recognise it. Fedora ships
 # qemu-user-static in its repos and registers it for you; Arch does not, which
