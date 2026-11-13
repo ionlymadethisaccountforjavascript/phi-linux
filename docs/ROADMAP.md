@@ -21,7 +21,8 @@ reproducible.
 **Exit criteria**
 - [ ] `make check` passes (fails today, correctly: x86-64 userland)
 - [ ] `make rootfs` produces `build/rootfs` (arm64)
-- [ ] `make initramfs` packs it
+- [ ] `make disk` packs it into a bootable ext4 image
+- [ ] `make initramfs` builds the initramfs
 - [ ] `make run` reaches a systemd `multi-user` prompt on the serial console
 - [ ] the same tree rebuilds from a clean clone on a second machine
 

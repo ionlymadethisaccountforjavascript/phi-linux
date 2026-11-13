@@ -1,0 +1,37 @@
+{
+  "name": "Phi Linux",
+  "build": {
+    "dockerfile": "../docker/Containerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/work",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/work,type=bind,consistency=cached",
+  "runArgs": [
+    "--privileged"
+  ],
+  "remoteUser": "root",
+  "postCreateCommand": "make check || true",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "timonwong.shellcheck",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "python.testing.unittestEnabled": true,
+        "python.testing.unittestArgs": [
+          "-v",
+          "-s",
+          "moded/tests",
+          "-t",
+          "moded"
+        ],
+        "shellcheck.exclude": [
+          "SC1090",
+          "SC1091"
+        ]
+      }
+    }
+  }
+}

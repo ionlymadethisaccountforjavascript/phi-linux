@@ -1,0 +1,12 @@
+# The image contains tools, not the project: the repo is bind-mounted at run
+# time. Keeping the build context small keeps rebuilds fast.
+.git
+build/
+rootfs/
+iso-root/Image
+*.img
+*.iso
+*.cpio
+*.cpio.gz
+__pycache__/
+*.pyc

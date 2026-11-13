@@ -1,0 +1,99 @@
+# Phi Linux build environment
+#
+# One image, every host. It is deliberately built for the *host* platform
+# (Debian on arm64 for Apple Silicon / ARM laptops, Debian on amd64 for
+# everything else) rather than pinned to arm64:
+#
+#   * the compiler, debootstrap, xorriso and GRUB run natively -> fast
+#   * arm64 userland binaries run under qemu-user-static, which is only ever
+#     used for the target rootfs, not for the whole build
+#
+# Pinning the image to linux/arm64 instead would emulate *everything*, making a
+# rootfs build take tens of minutes instead of a couple.
+#
+# Build:
+#   docker build -f docker/Containerfile -t phi-linux-build .
+# Or just use the wrapper, which also handles uid mapping and privileged runs:
+#   scripts/phi-container.sh
+
+FROM debian:trixie-slim
+
+LABEL org.opencontainers.image.title="phi-linux build environment" \
+      org.opencontainers.image.description="arm64 cross-build, rootfs, initramfs, boot image and QEMU tools for Phi Linux" \
+      org.opencontainers.image.source="https://github.com/ionlymadethisaccountforjavascript/phi-linux"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    PHI_IN_CONTAINER=1
+
+# --- core toolchain ---------------------------------------------------------
+# bc/bison/flex/libssl-dev/libncurses-dev/libelf-dev are for building a kernel
+# from source once the port needs patches beyond a distro kernel.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl wget git \
+        build-essential bc bison flex \
+        libssl-dev libncurses-dev libelf-dev libudev-dev \
+        python3 python3-venv \
+        file less tree rsync sudo bash-completion shellcheck \
+        cpio gzip xz-utils zstd unzip \
+        e2fsprogs dosfstools \
+        openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- arm64 userland: cross rootfs + emulation -------------------------------
+# debootstrap creates the userland; qemu-user-static lets its arm64 apt and
+# postinst scripts execute on a non-arm64 host; arch-test lets debootstrap
+# decide whether --foreign is needed.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        debootstrap qemu-user-static binfmt-support arch-test \
+        busybox-static \
+        device-tree-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- VM track: ISO + running the result -------------------------------------
+# grub-efi-arm64-bin builds the ARM64 EFI ISO; qemu-system-arm boots it.
+# grub-pc-bin (x86 BIOS modules) is best-effort: it is not built for arm64, and
+# on an Apple Silicon or ARM Linux host its absence must not fail the image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        grub-efi-arm64-bin xorriso mtools \
+        qemu-system-arm qemu-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update \
+    && (apt-get install -y --no-install-recommends grub-pc-bin || true) \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- device track: flashing ------------------------------------------------
+# Kept in a separate layer with a fallback: these package names move between
+# releases and their absence must not fail the whole image. Flashing is often
+# better done on the host anyway, where USB hotplug is visible.
+RUN apt-get update \
+    && (apt-get install -y --no-install-recommends adb fastboot \
+        && echo "android platform tools installed") \
+       || echo "WARNING: adb/fastboot unavailable in the image; flash from the host" \
+    && rm -rf /var/lib/apt/lists/*
+
+# mkbootimg is not packaged in Debian; the device track documents how to get it
+# (postmarketOS boot-deploy is the better answer for a real port anyway).
+RUN apt-get update \
+    && (apt-get install -y --no-install-recommends mkbootimg \
+        && echo "mkbootimg installed") \
+       || echo "NOTE: mkbootimg not packaged here; see docs/DEVICE-BRINGUP.md section 5" \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- convenience ------------------------------------------------------------
+# Bash prompt that says where you are, so a root shell in a container is never
+# mistaken for the host.
+RUN printf '%s\n' \
+    'export PS1="\[\e[36m\][phi-build]\[\e[0m\] \w \$ "' \
+    'export PATH="/work/scripts:$PATH"' \
+    >> /root/.bashrc \
+ && printf '%s\n' \
+    'export PS1="\[\e[36m\][phi-build]\[\e[0m\] \w \$ "' \
+    'export PATH="/work/scripts:$PATH"' \
+    >> /etc/skel/.bashrc
+
+WORKDIR /work
+
+# The wrapper overrides this with a command; a bare `docker run -it` gets a shell.
+CMD ["/bin/bash"]

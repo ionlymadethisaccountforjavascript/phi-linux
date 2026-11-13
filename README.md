@@ -24,12 +24,22 @@ Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 
 ## Quick start
 
+Not on an arm64 machine? `docs/DEVELOPMENT.md` has a container that covers
+every host (x86-64 Linux, WSL2, Apple Silicon, Intel macOS), and a native path
+if you already have arm64.
+
 ```sh
 make check          # toolchain + architecture sanity; fails loudly on mismatch
+make test           # 35 mode-manager tests, no hardware needed
 make rootfs         # arm64 Debian userland into build/rootfs   (needs root)
+make disk           # pack it into build/rootfs.ext4 for the VM
 make initramfs      # build/initramfs-arm64.cpio.gz
-make run            # boot it in QEMU (no ISO, no GRUB)
+make run            # boot the whole thing in QEMU (no ISO, no GRUB)
 ```
+
+On a non-arm64 host, prefix with the build container:
+`scripts/phi-container.sh rootfs`, `… disk`, `… run`. See
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 For a real phone:
 
@@ -80,6 +90,7 @@ scripts/                 build, deploy, power reporting
 moded/phi_moded/         mode manager: detect / policy / actions / notify
 moded/tests/             35 unit tests, no hardware required
 systemd/                 posture targets, daemon unit, user session bridge
+docker/                  build environment for any host (plus .devcontainer)
 config/kernel/           kernel config fragments (convergence, power)
 config/devices/          per-codename device profiles
 config/rootfs-packages.txt

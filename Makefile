@@ -17,6 +17,7 @@ DTB         ?= $(BUILD)/dtb/$(DEVICE).dtb
 INITRAMFS   ?= $(BUILD)/initramfs-$(ARCH).cpio.gz
 BOOTIMG     ?= $(BUILD)/boot-$(DEVICE).img
 ISO         ?= $(BUILD)/phi-linux-$(ARCH).iso
+DISK        ?= $(BUILD)/rootfs.ext4
 ISO_TREE    ?= iso-root
 ROOTFS      ?= $(BUILD)/rootfs
 SUITE       ?= trixie
@@ -33,11 +34,13 @@ help:
 	@echo "  make run                   boot the VM track in QEMU (no ISO needed)"
 	@echo "  make iso                   build a bootable ISO (VM track)"
 	@echo "  make rootfs                debootstrap an arm64 Debian rootfs"
+	@echo "  make disk                  pack build/rootfs into a bootable ext4 image"
 	@echo "  make bootimg DEVICE=<codename>      pack kernel+dtb+initramfs -> boot.img"
 	@echo "  make deploy DEVICE=<codename>       (dry-run) push boot.img to a device"
 	@echo "  make kernel-config         merge Phi's kernel config fragments"
 	@echo "  make power                 live battery / power state report"
 	@echo "  make test                  run moded + script tests"
+	@echo "  make container             build shell via the build container (any host)"
 	@echo "  make clean                 remove build artifacts"
 	@echo ""
 	@echo "  DEVICE is a codename such as 'oneplus-enchilada'."
@@ -56,8 +59,15 @@ $(INITRAMFS): $(KERNEL) | $(BUILD)
 iso:
 	@scripts/mkiso.sh --tree $(ISO_TREE) --initramfs $(INITRAMFS) --out $(ISO)
 
+# Boots the disk image when one exists; otherwise the initramfs rescue shell.
 run: $(INITRAMFS)
-	@scripts/run-qemu.sh --kernel $(KERNEL) --initramfs $(INITRAMFS)
+	@if [ -f "$(DISK)" ]; then \
+		scripts/run-qemu.sh --kernel $(KERNEL) --initramfs $(INITRAMFS) --disk $(DISK); \
+	else \
+		echo "note: no $(DISK); booting the initramfs rescue shell only"; \
+		echo "      run 'make rootfs && make disk' for a full system"; \
+		scripts/run-qemu.sh --kernel $(KERNEL) --initramfs $(INITRAMFS); \
+	fi
 
 # --- device track -----------------------------------------------------------
 
@@ -79,6 +89,9 @@ kernel-config:
 
 # --- rootfs -----------------------------------------------------------------
 
+disk:
+	@scripts/mkdisk.sh --rootfs $(ROOTFS) --out $(DISK)
+
 rootfs: | $(BUILD)
 	@scripts/mkrootfs.sh --arch $(ARCH) --suite $(SUITE) --mirror $(MIRROR) \
 		--out $(ROOTFS)
@@ -87,6 +100,9 @@ rootfs: | $(BUILD)
 
 power:
 	@scripts/power-report.sh
+
+container:
+	@scripts/phi-container.sh
 
 test:
 	@echo "== moded ==" && python3 -m unittest discover -s moded/tests -t moded -v
@@ -98,4 +114,4 @@ $(BUILD):
 clean:
 	@rm -rf $(BUILD)
 
-.PHONY: help check initramfs iso run bootimg deploy rootfs kernel-config power test clean
+.PHONY: help check initramfs iso run bootimg deploy rootfs disk kernel-config power test container clean

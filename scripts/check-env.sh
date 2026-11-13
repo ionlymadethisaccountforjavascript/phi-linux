@@ -37,6 +37,27 @@ else:
 PY
 }
 
+head_ "0. Host"
+HOST_ARCH="$(uname -m)"
+printf '  %-22s %s\n' "architecture" "$HOST_ARCH"
+printf '  %-22s %s\n' "kernel" "$(uname -sr)"
+distro="unknown"
+if [[ -r /etc/os-release ]]; then
+    distro="$(. /etc/os-release && printf '%s' "${PRETTY_NAME:-$NAME}")"
+fi
+printf '  %-22s %s\n' "distro" "$distro"
+if [[ -f /.dockerenv ]] || grep -qa 'docker\|podman\|containerd' /proc/1/cgroup 2>/dev/null; then
+    printf '  %-22s %s\n' "container" "yes"
+fi
+if [[ "$HOST_ARCH" == "aarch64" || "$HOST_ARCH" == "arm64" ]]; then
+    ok "native arm64 host: no emulation needed, KVM available for 'make run'"
+else
+    note "host is $HOST_ARCH, target is $ARCH"
+    echo "        containers:  scripts/phi-container.sh          (recommended)"
+    echo "        bare metal:  apt install qemu-user-static binfmt-support"
+    echo "        full guide:  docs/DEVELOPMENT.md"
+fi
+
 head_ "1. Kernel"
 if [[ -f "$KERNEL" ]]; then
     kmach="$(machine_name "$KERNEL")"

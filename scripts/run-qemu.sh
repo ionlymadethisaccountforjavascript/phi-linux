@@ -12,6 +12,7 @@ DISK=""
 MEM=2G
 CPUS=2
 GRAPHICAL=0
+ACCEL=auto
 EXTRA=""
 
 usage() {
@@ -23,6 +24,7 @@ usage: run-qemu.sh [options]
   --disk <path>         root filesystem image (raw); mounted as /dev/vda
   --mem <size>          memory (default 2G)
   --cpus <n>            vCPUs (default 2)
+  --accel <auto|kvm|hvf|tcg>   hardware acceleration (default auto)
   --graphical           open a window instead of -nographic
   --append <string>     extra kernel cmdline
 EOF
@@ -36,6 +38,7 @@ while [[ $# -gt 0 ]]; do
         --disk)      DISK="$2"; shift 2 ;;
         --mem)       MEM="$2"; shift 2 ;;
         --cpus)      CPUS="$2"; shift 2 ;;
+        --accel)     ACCEL="$2"; shift 2 ;;
         --graphical) GRAPHICAL=1; shift ;;
         --append)    EXTRA="$2"; shift 2 ;;
         -h|--help)   usage 0 ;;
@@ -57,7 +60,28 @@ else
 fi
 [[ -n "$EXTRA" ]] && CMDLINE+=" $EXTRA"
 
-ARGS=(-M virt -cpu cortex-a72 -smp "$CPUS" -m "$MEM"
+# Emulation choice decides whether this is usable or a slideshow:
+#   kvm  - arm64 host with /dev/kvm (and inside a container: --device /dev/kvm)
+#   hvf  - Apple Silicon, arm64 guest on the Hypervisor framework
+#   tcg  - pure emulation, 5-20x slower; fine for a serial console, painful
+#          for Plasma
+if [[ "$ACCEL" == "auto" ]]; then
+    if [[ -w /dev/kvm ]]; then
+        ACCEL=kvm
+    elif [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+        ACCEL=hvf
+    else
+        ACCEL=tcg
+    fi
+fi
+
+case "$ACCEL" in
+    kvm|hvf) CPU_ARGS=(-accel "$ACCEL" -cpu host) ;;
+    tcg)     CPU_ARGS=(-accel tcg -cpu cortex-a72) ;;
+    *)       echo "error: --accel must be auto, kvm, hvf or tcg" >&2; exit 1 ;;
+esac
+
+ARGS=(-M virt "${CPU_ARGS[@]}" -smp "$CPUS" -m "$MEM"
       -kernel "$KERNEL" -append "$CMDLINE")
 
 [[ -f "$INITRAMFS" ]] && ARGS+=(-initrd "$INITRAMFS")
@@ -69,7 +93,7 @@ else
     ARGS+=(-nographic)
 fi
 
-echo "==> qemu-system-aarch64 ${ARGS[*]}"
+echo "==> qemu-system-aarch64 (accel=$ACCEL) ${ARGS[*]}"
 echo "    cmdline: $CMDLINE"
 echo "    exit QEMU with ctrl-a x"
 exec qemu-system-aarch64 "${ARGS[@]}"
