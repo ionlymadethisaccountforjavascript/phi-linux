@@ -64,9 +64,10 @@ if [[ -z "$ENGINE" ]]; then
 error: no container engine found (docker, podman or nerdctl).
 
 Install one:
+  Arch            sudo pacman -S podman        (or docker from extra)
   Debian/Ubuntu   sudo apt install docker.io && sudo usermod -aG docker "$USER"
-  macOS/Windows   Docker Desktop, then: docker desktop start
   Fedora          sudo dnf install podman
+  macOS/Windows   Docker Desktop, then: docker desktop start
 
 Or build without a container: docs/DEVELOPMENT.md lists the host packages for
 an arm64 machine (no container needed at all) and for x86-64 (qemu-user-static).

@@ -69,16 +69,19 @@ BB="$(find_static_busybox)" || {
     cat >&2 <<'EOF'
 error: no static busybox for this architecture.
 
-  Debian/Ubuntu host, arm64 target:
-    sudo apt install busybox-static          # x86-64 build
-    # arm64 build for the target image, either:
-    debootstrap/build with qemu-debootstrap, or
-    apt download busybox-static:arm64 (needs arm64 in dpkg --add-architecture)
-    # simplest: build the rootfs first, then reuse its /usr/bin/busybox
+  Any host, arm64 target -- easiest path:
     make rootfs && make initramfs
+    # the rootfs contains an arm64 busybox, which this script reuses
 
-  Alpine/postmarketOS host:
-    sudo apk add busybox-static
+  Host packages, if you want one directly:
+    Debian/Ubuntu   sudo apt install busybox-static
+    Arch            sudo pacman -S busybox
+    Fedora          sudo dnf install busybox
+    Alpine          sudo apk add busybox-static
+    (all of the above are x86-64 builds; they only work for --arch amd64)
+
+  The build container has an arm64 busybox and needs no host packages:
+    scripts/phi-container.sh initramfs
 EOF
     exit 1
 }

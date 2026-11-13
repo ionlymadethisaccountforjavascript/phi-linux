@@ -25,10 +25,12 @@ Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 ## Quick start
 
 Not on an arm64 machine? `docs/DEVELOPMENT.md` has a container that covers
-every host (x86-64 Linux, WSL2, Apple Silicon, Intel macOS), and a native path
-if you already have arm64.
+every host (x86-64 Linux, WSL2, Arch, Apple Silicon, Intel macOS), and native
+paths per distro. `make deps` knows the Arch/Debian/Fedora/Alpine package
+names.
 
 ```sh
+make deps           # install build packages for your distro (prints by default)
 make check          # toolchain + architecture sanity; fails loudly on mismatch
 make test           # 35 mode-manager tests, no hardware needed
 make rootfs         # arm64 Debian userland into build/rootfs   (needs root)

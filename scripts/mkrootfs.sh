@@ -77,10 +77,15 @@ if [[ $CROSS -eq 1 ]]; then
             cat >&2 <<EOF
 error: cross-building $ARCH on $HOST_ARCH needs qemu-user-static.
 
-  Debian/Ubuntu host:   sudo apt install qemu-user-static binfmt-support
-  Alpine/pmOS host:     sudo apk add qemu-aarch64
-  Or skip the host setup entirely and use the build container:
-                        scripts/phi-container.sh        (see docs/DEVELOPMENT.md)
+  any distro:           make deps        (installs the right emulator)
+  Arch:                 yay -S qemu-user-static
+                        (AUR only; ships its own systemd-binfmt entry)
+  Debian/Ubuntu:        sudo apt install qemu-user-static binfmt-support
+  Fedora:               sudo dnf install qemu-user-static
+  Alpine/pmOS:          sudo apk add qemu-aarch64
+
+  Or skip host setup entirely, the container has all of it:
+                        scripts/phi-container.sh rootfs   (docs/DEVELOPMENT.md)
 EOF
             [[ $DRYRUN -eq 1 ]] || exit 1
         else
@@ -117,7 +122,13 @@ EOF
 fi
 
 [[ $EUID -eq 0 ]] || { echo "error: mkrootfs needs root (debootstrap + mounts)" >&2; exit 1; }
-command -v debootstrap >/dev/null 2>&1 || { echo "error: debootstrap not installed (apt install debootstrap)" >&2; exit 1; }
+command -v debootstrap >/dev/null 2>&1 || {
+    echo "error: debootstrap not installed." >&2
+    echo "       Debian/Ubuntu: sudo apt install debootstrap" >&2
+    echo "       Arch:          yay -S debootstrap    (AUR)" >&2
+    echo "       Any distro:    scripts/phi-container.sh rootfs   (already has it)" >&2
+    exit 1
+}
 
 # Everything that should run inside the target rootfs goes through this.
 chroot_run() {

@@ -29,6 +29,7 @@ DEVICE      ?=
 help:
 	@echo "Phi Linux"
 	@echo ""
+	@echo "  make deps                  install build packages for your distro"
 	@echo "  make check                 verify toolchain, kernel arch, rootfs arch"
 	@echo "  make initramfs             build the initramfs cpio.gz"
 	@echo "  make run                   boot the VM track in QEMU (no ISO needed)"
@@ -45,6 +46,9 @@ help:
 	@echo ""
 	@echo "  DEVICE is a codename such as 'oneplus-enchilada'."
 	@echo "  Read docs/DEVICE-BRINGUP.md before the first flash."
+
+deps:
+	@scripts/deps.sh $(if $(INSTALL),--install,--print) $(if $(GROUP),--group $(GROUP),)
 
 check:
 	@scripts/check-env.sh
@@ -114,4 +118,4 @@ $(BUILD):
 clean:
 	@rm -rf $(BUILD)
 
-.PHONY: help check initramfs iso run bootimg deploy rootfs disk kernel-config power test container clean
+.PHONY: help deps check initramfs iso run bootimg deploy rootfs disk kernel-config power test container clean

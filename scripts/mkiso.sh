@@ -52,15 +52,12 @@ command -v grub-mkrescue >/dev/null 2>&1 || {
     cat >&2 <<'EOF'
 error: grub-mkrescue not found.
 
-On Debian/Ubuntu (host builds arm64 EFI images):
-  sudo apt install grub-efi-arm64-bin grub-pc-bin xorriso mtools
-
-Or use the VM track without an ISO at all, which needs no extra tooling:
-  make run
+  make deps          # installs the right packages for your distro
+  make run           # or skip the ISO entirely: direct kernel boot, no GRUB
 EOF
     exit 1
 }
-command -v xorriso >/dev/null 2>&1 || { echo "error: xorriso not found (apt install xorriso mtools)" >&2; exit 1; }
+command -v xorriso >/dev/null 2>&1 || { echo "error: xorriso not found (run 'make deps')" >&2; exit 1; }
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
@@ -75,7 +72,16 @@ fi
 GRUB_DIR=/usr/lib/grub/arm64-efi
 [[ -d "$GRUB_DIR" ]] || GRUB_DIR="$(dirname "$(find /usr/lib/grub -name 'efi.mod' -path '*arm64*' 2>/dev/null | head -1)" 2>/dev/null)/"
 if [[ ! -d "$GRUB_DIR" || "$GRUB_DIR" == "/" ]]; then
-    echo "error: no arm64-efi GRUB platform modules found (apt install grub-efi-arm64-bin)" >&2
+    cat >&2 <<'EOF'
+error: no arm64-efi GRUB platform modules found.
+
+The ISO needs GRUB built for arm64 EFI, which not every distro ships in its
+grub package (Arch, notably, ships x86 modules only). Two options:
+
+  - build the ISO inside the container, which has grub-efi-arm64-bin:
+        scripts/phi-container.sh iso
+  - skip the ISO: 'make run' boots the kernel directly and needs no GRUB
+EOF
     exit 1
 fi
 

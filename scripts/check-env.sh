@@ -46,6 +46,9 @@ if [[ -r /etc/os-release ]]; then
     distro="$(. /etc/os-release && printf '%s' "${PRETTY_NAME:-$NAME}")"
 fi
 printf '  %-22s %s\n' "distro" "$distro"
+for pm in pacman apt-get dnf zypper apk; do
+    command -v "$pm" >/dev/null 2>&1 && printf '  %-22s %s\n' "package manager" "$pm" && break
+done
 if [[ -f /.dockerenv ]] || grep -qa 'docker\|podman\|containerd' /proc/1/cgroup 2>/dev/null; then
     printf '  %-22s %s\n' "container" "yes"
 fi
@@ -54,7 +57,7 @@ if [[ "$HOST_ARCH" == "aarch64" || "$HOST_ARCH" == "arm64" ]]; then
 else
     note "host is $HOST_ARCH, target is $ARCH"
     echo "        containers:  scripts/phi-container.sh          (recommended)"
-    echo "        bare metal:  apt install qemu-user-static binfmt-support"
+    echo "        bare metal:  make deps    (installs for your distro)"
     echo "        full guide:  docs/DEVELOPMENT.md"
 fi
 
@@ -106,19 +109,19 @@ fi
 head_ "3. Host toolchain"
 need_core=(python3 gzip)
 for t in "${need_core[@]}"; do
-    command -v "$t" >/dev/null 2>&1 && ok "$t" || bad "$t (apt install $t)"
+    command -v "$t" >/dev/null 2>&1 && ok "$t" || bad "$t missing (run 'make deps')"
 done
 # cpio is optional: busybox ships an applet and mkinitramfs falls back to it
 if command -v cpio >/dev/null 2>&1; then
     ok "cpio"
 elif command -v busybox >/dev/null 2>&1; then
-    note "cpio missing; using the busybox applet (apt install cpio for faster builds)"
+    note "cpio missing; using the busybox applet ('make deps' avoids this)"
 else
-    bad "cpio (apt install cpio)"
+    bad "cpio missing (run 'make deps')"
 fi
 command -v busybox >/dev/null 2>&1 \
     && ok "busybox ($(busybox 2>&1 | head -1))" \
-    || note "busybox missing (apt install busybox-static) - needed by 'make initramfs'"
+    || note "busybox missing - needed by 'make initramfs' (run 'make deps')"
 
 head_ "4. Optional: VM track"
 for t in qemu-system-aarch64 grub-mkrescue xorriso; do

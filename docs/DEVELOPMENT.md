@@ -10,6 +10,7 @@ sitting in front of.
 git clone https://github.com/ionlymadethisaccountforjavascript/phi-linux.git
 cd phi-linux
 
+make deps                         # prints your distro's package command
 scripts/phi-container.sh test     # builds the image on first run, ~2-4 min
 scripts/phi-container.sh check    # environment + architecture sanity
 scripts/phi-container.sh shell    # interactive shell, repo mounted at /work
@@ -25,20 +26,27 @@ the best setup and section A applies.
 
 | Host | Rootfs build | `make run` (QEMU) | Recommendation |
 | --- | --- | --- | --- |
-| arm64 Linux (ARM laptop, ARM server, Asahi) | native, fast | KVM, fast | **No container.** Section A. |
+| arm64 Linux (ARM laptop, ARM server, Asahi, Arch ARM) | native, fast | KVM, fast | **No container.** Section A. |
 | x86-64 Linux / WSL2 | qemu-user, medium | KVM if `/dev/kvm` | Container, section B (or native cross, section C) |
 | Apple Silicon macOS | native arm64 inside the container, fast | HVF — usable | Container, section B |
 | Intel macOS / Windows | qemu-user, slow | TCG only, very slow | Container, section B; expect a slideshow for Plasma |
 
-## A. arm64 Linux host — no container needed
+## A. Native host — no container
+
+Best on an arm64 machine (everything is native), but any distro works; only the
+package names change. `make deps` knows them.
+
+| Distro | Install | arm64 rootfs on the host |
+| --- | --- | --- |
+| Debian / Ubuntu | `make deps` | `debootstrap` + `qemu-user-static`, official repos |
+| Arch | `make deps` | **both are AUR-only** — see below |
+| Fedora | `make deps` | official repos |
+| Alpine / pmOS | `make deps` | `qemu-aarch64` |
+| anything else | `scripts/deps.sh` prints generic names | — |
 
 ```sh
-sudo apt install build-essential python3 git \
-    debootstrap cpio gzip xz-utils zstd busybox-static e2fsprogs \
-    qemu-system-arm qemu-utils qemu-user-static \
-    grub-efi-arm64-bin grub-pc-bin xorriso mtools \
-    device-tree-compiler shellcheck
-
+make deps               # print the install command for your distro
+make deps INSTALL=1     # ... or run it
 make check && make test
 sudo make rootfs        # debootstrap writes a lot of files as root
 make disk               # pack the rootfs into build/rootfs.ext4
@@ -46,8 +54,29 @@ make initramfs
 make run                # serial console, ctrl-a x to quit
 ```
 
-Everything is native: the arm64 userland you are building is the architecture
-you are running on, so `debootstrap` needs no emulation layer at all.
+### Arch specifics
+
+Three things bite on Arch, in this order:
+
+1. **`debootstrap` and `qemu-user-static` are AUR-only.**
+   ```sh
+   yay -S debootstrap qemu-user-static
+   sudo systemctl restart systemd-binfmt   # qemu-user-static ships the entry
+   ```
+   `qemu-user-static` only matters on **x86-64** Arch. On Arch ARM you are
+   native and need neither.
+
+2. **Arch's `grub` ships x86 modules only**, so `make iso` cannot produce an
+   arm64-efi ISO on Arch. Either build it in the container
+   (`scripts/phi-container.sh iso`) or skip the ISO — `make run` boots the
+   kernel directly and does not need GRUB at all.
+
+3. **`podman` is in the official repos** and the wrapper prefers it if
+   `docker` is absent, so the container path costs one `pacman -S podman`.
+
+On x86-64 Arch the container is still the smoother route: it brings
+`debootstrap`, the emulator and the arm64 GRUB modules in one step, with none
+of the AUR wait.
 
 ## B. The container (recommended for everything else)
 
@@ -156,6 +185,8 @@ container started. Run `scripts/deploy-device.sh` directly on the host.
 | `-accel kvm: invalid accelerator kvm` | no `/dev/kvm` (VM without nested virt) | `make run` with `--accel tcg` |
 | `No space left on device` | rootfs is ~1.5 GB, +Plasma ~4-6 GB | 15 GB free in the build volume |
 | `Release file expired` | clock skew in the container | restart Docker, or `sudo hwclock -s` |
+| Arch: `target not found: debootstrap` | AUR-only package | `yay -S debootstrap`, or use the container |
+| Arch: `no arm64-efi GRUB platform modules` | Arch `grub` is x86-only | `scripts/phi-container.sh iso`, or use `make run` |
 | podman: `SELinux is preventing access` | missing mount label | the wrapper adds `:z`; pass `--engine podman` explicitly if autodetect missed |
 | Apple Silicon: everything is slow | you built with `--platform linux/amd64` | rebuild without it |
 
