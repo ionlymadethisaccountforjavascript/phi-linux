@@ -1,0 +1,73 @@
+# Phi: convergence kernel options
+#
+# Merge onto arch/arm64/configs/defconfig with scripts/merge-kernel-config.sh.
+# Nothing here is device-specific: the board's own options (panel driver, PHY
+# variants, touchscreen, modem firmware paths) belong in the port's fragment.
+#
+# These are the options that decide whether "phone becomes a PC" is a hardware
+# possibility at all. Display-over-USB-C needs typec + the SoC's DP path; a
+# phone that cannot drive an external display can only converge over Wi-Fi
+# display or a DisplayLink adapter (see docs/ARCHITECTURE.md).
+
+# --- platform ---------------------------------------------------------------
+CONFIG_ARCH_QCOM=y
+CONFIG_ARM64=y
+
+# --- display ----------------------------------------------------------------
+CONFIG_DRM=y
+CONFIG_DRM_MSM=y
+CONFIG_DRM_PANEL=y
+CONFIG_DRM_PANEL_BRIDGE=y
+CONFIG_DRM_DISPLAY_CONNECTOR=y
+CONFIG_I2C=y
+CONFIG_BACKLIGHT_CLASS_DEVICE=y
+CONFIG_BACKLIGHT_PWM=y
+# NOTE: DP-over-USB-C support inside DRM_MSM varies by SoC and kernel version.
+# Check your device boots with an external display under a reference distro
+# before assuming this fragment enables it.
+
+# --- USB-C: role swap and DisplayPort alternate mode ------------------------
+CONFIG_TYPEC=y
+CONFIG_TYPEC_TCPM=y
+CONFIG_TYPEC_TCPCI=y
+CONFIG_TYPEC_MUX_PI3USB30532=y
+CONFIG_TYPEC_MUX_INTEL_PMC=y
+CONFIG_USB_ROLE_SWITCH=y
+CONFIG_PHY_QCOM_QMP=y
+CONFIG_PHY_QCOM_QUSB2=y
+CONFIG_PHY_QCOM_USB_HS=y
+CONFIG_PHY_QCOM_EDP=y
+
+# --- USB host: keyboards, mice, hubs, storage -------------------------------
+CONFIG_USB_SUPPORT=y
+CONFIG_USB=y
+CONFIG_USB_XHCI_HCD=y
+CONFIG_USB_DWC3=y
+CONFIG_USB_DWC3_QCOM=y
+CONFIG_USB_HID=y
+CONFIG_HID_GENERIC=y
+CONFIG_INPUT_EVDEV=y
+CONFIG_INPUT_UINPUT=y
+
+# --- Android app compatibility (Waydroid) -----------------------------------
+# Containerised Android apps are how the "phone" half of the product stays
+# usable: banking apps, camera apps, anything with no Linux build.
+CONFIG_ANDROID_BINDER_IPC=y
+CONFIG_ANDROID_BINDERFS=y
+CONFIG_ANDROID_BINDER_DEVICES=""
+
+# --- Android phones are SBCs: firmware + power domains ----------------------
+CONFIG_QCOM_RPMH=y
+CONFIG_QCOM_SMD_RPM=y
+CONFIG_QCOM_LLCC=y
+CONFIG_QCOM_TSENS=y
+CONFIG_PM_GENERIC_DOMAINS=y
+
+# --- modem / cellular (calls, SMS, data) ------------------------------------
+CONFIG_QCOM_Q6V5_PAS=y
+CONFIG_REMOTEPROC=y
+CONFIG_QRTR=y
+CONFIG_QRTR_SMD=y
+CONFIG_CFG80211=y
+CONFIG_MAC80211=y
+CONFIG_RFKILL=y

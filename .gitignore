@@ -9,3 +9,9 @@
 *.cpio
 *.cpio.gz
 /kernel-arm64
+
+# build outputs (rootfs, initramfs, boot images, ISOs live in build/)
+*.img
+*.pyc
+__pycache__/
+.venv/

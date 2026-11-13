@@ -1,0 +1,76 @@
+# Phi: battery kernel options
+#
+# Battery life on Linux phones is mostly decided here, not in userspace. Three
+# things matter, in this order:
+#   1. the CPU must be able to enter deep idle, and clusters must collapse
+#   2. the scheduler must use an energy model (EAS) instead of racing to max
+#   3. something must be able to suspend, and something must be able to tell
+#      you why it did not
+
+# --- EAS: energy aware scheduling -------------------------------------------
+# Without an energy model the governor has no idea that a small core at 1 GHz
+# costs a fraction of a big core at 2 GHz, and phone idle drain doubles.
+CONFIG_ENERGY_MODEL=y
+CONFIG_CPU_FREQ=y
+CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y
+CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
+CONFIG_CPU_FREQ_GOV_ONDEMAND=n
+CONFIG_CPU_FREQ_GOV_PERFORMANCE=n
+CONFIG_ARM_QCOM_CPUFREQ_HW=y
+# EAS needs capacity-dmips-mhz in the device tree. It is a *silent* failure
+# when it is missing: the system still boots, it just never gets the savings.
+CONFIG_SCHED_MC=y
+CONFIG_SCHED_DEBUG=y
+
+# --- idle and suspend -------------------------------------------------------
+CONFIG_CPU_IDLE=y
+CONFIG_ARM_PSCI_CPUIDLE=y
+CONFIG_SUSPEND=y
+CONFIG_PM_SLEEP=y
+CONFIG_PM_AUTOSLEEP=y
+CONFIG_CPU_PM=y
+CONFIG_SUSPEND_SKIP_SYNC=y
+# Most phones suspend to idle (s2idle), not to RAM: it is faster to resume and
+# the vendor bootloader does not support the alternative.
+
+# --- thermal ----------------------------------------------------------------
+CONFIG_THERMAL=y
+CONFIG_CPU_THERMAL=y
+CONFIG_DEVFREQ_THERMAL=y
+CONFIG_THERMAL_GOV_STEP_WISE=y
+CONFIG_THERMAL_GOV_POWER_ALLOCATOR=y
+
+# --- GPU frequency scaling --------------------------------------------------
+CONFIG_PM_DEVFREQ=y
+CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND=y
+CONFIG_DEVFREQ_GOV_PERFORMANCE=y
+
+# --- memory pressure --------------------------------------------------------
+# zram keeps a 4-8 GB phone from swapping to eMMC. One page of eMMC traffic
+# costs far more energy than compressing ten pages in RAM.
+CONFIG_ZRAM=y
+CONFIG_ZSMALLOC=y
+CONFIG_ZSMALLOC_STAT=y
+CONFIG_PSI=y
+CONFIG_PSI_DEFAULT_DISABLED=n
+CONFIG_COMPACTION=y
+
+# --- sizing that matters on phones ------------------------------------------
+CONFIG_HZ_250=y
+CONFIG_HZ=250
+CONFIG_PREEMPT_DYNAMIC=y
+CONFIG_ARM64_4K_PAGES=y
+CONFIG_ARM64_VA_BITS_39=y
+CONFIG_MODULES=y
+CONFIG_MODULE_COMPRESS=y
+CONFIG_MODULE_COMPRESS_ZSTD=y
+
+# --- diagnosing sleep failures ----------------------------------------------
+# The first question about a phone that loses 30% overnight is "did it
+# suspend, and who woke it". These make that answerable.
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+CONFIG_PSTORE=y
+CONFIG_PSTORE_CONSOLE=y
+CONFIG_PSTORE_RAM=y
+CONFIG_DEBUG_FS=y

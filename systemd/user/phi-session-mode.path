@@ -1,0 +1,12 @@
+[Unit]
+Description=Watch the Phi posture state for changes
+
+[Path]
+# phi-moded (system service, root) writes the decided posture here; this user
+# unit reacts inside the session, where it can actually talk to KWin.
+PathChanged=/run/phi/mode-state.json
+PathModified=/run/phi/mode-state.json
+Unit=phi-session-mode.service
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,33 @@
+# phi-moded configuration -- installed to /etc/phi/moded.toml
+#
+# Defaults are chosen for a phone that is mostly carried, occasionally docked:
+# react quickly to a dock (people expect the desktop within a second or two),
+# and be slow to leave it (a bumped cable must not yank the UI away).
+
+[moded]
+poll_interval = 2.0      # seconds between sysfs scans
+debounce_enter = 1.5     # external display must persist this long
+debounce_leave = 3.0     # ... and stay gone this long before leaving desktop
+state_dir = "/run/phi"
+log_level = "info"
+
+[targets]
+phone = "phi-phone.target"
+desktop = "phi-desktop.target"
+
+[hooks]
+enter_desktop = "/usr/lib/phi/moded/hooks/enter-desktop.d"
+leave_desktop = "/usr/lib/phi/moded/hooks/leave-desktop.d"
+
+# Power posture. Docked means "on mains power with a desk in front of you":
+# favour responsiveness and let the governor spend a little more, because the
+# battery is not the constraint. Phone mode is the opposite.
+[power.phone]
+governor = "schedutil"
+epp = "power"            # energy_preference: minimise watts
+wifi_powersave = true
+
+[power.desktop]
+governor = "schedutil"
+epp = "balance_performance"
+wifi_powersave = false   # lowest latency for remote sessions

@@ -1,0 +1,15 @@
+[Unit]
+Description=Apply the Phi posture to the Plasma session
+After=plasma-kwin_wayland.service plasma-plasmashell.service
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/lib/phi/session/apply-mode.sh
+# A session-side failure must never take the session down.
+SuccessExitStatus=0 1
+TimeoutStartSec=20
+
+[Install]
+WantedBy=graphical-session.target

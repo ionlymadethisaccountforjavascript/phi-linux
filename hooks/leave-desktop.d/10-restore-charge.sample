@@ -1,0 +1,11 @@
+#!/bin/sh
+# Undo the docked charge cap: away from a desk, the user wants a full battery.
+set -eu
+
+for p in /sys/class/power_supply/battery/charge_control_end_threshold \
+         /sys/class/power_supply/*/charge_control_end_threshold; do
+    [ -w "$p" ] || continue
+    echo 100 > "$p" && echo "[phi] charge limit -> 100% ($p)"
+    exit 0
+done
+exit 0

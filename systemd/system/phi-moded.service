@@ -1,0 +1,33 @@
+[Unit]
+Description=Phi Linux mode manager (phone <-> desktop)
+Documentation=file:///usr/share/doc/phi-linux/ARCHITECTURE.md
+# The manager must survive the target isolations it performs on itself.
+IgnoreOnIsolate=yes
+After=local-fs.target
+Before=phi-phone.target phi-desktop.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/bin/phi-moded run --config /etc/phi/moded.toml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=2
+# It is the thing that decides when the device is docked; if it wedges, the
+# device is stuck in the wrong posture, so restart rather than limp.
+WatchdogSec=45
+TimeoutStartSec=30
+
+# Root is required for cpufreq writes and systemctl isolate. Keep everything
+# else locked down.
+User=root
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectKernelTunables=no
+ProtectSystem=strict
+ReadWritePaths=/run/phi /sys/devices/system/cpu/cpufreq
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

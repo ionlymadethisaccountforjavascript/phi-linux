@@ -1,0 +1,71 @@
+# Phi Linux root filesystem packages
+#
+# Keep this list small and intentional. Every package here is one more thing
+# that runs at boot, wakes the CPU and drains the battery in phone mode.
+# Add packages because a feature needs them, not because Debian ships them.
+
+# --- init / session plumbing ------------------------------------------------
+systemd
+systemd-resolved
+systemd-timesyncd
+dbus
+policykit-1
+seatd                       # seat management for the Wayland session
+sudo
+kmod
+udev
+
+# --- Plasma Mobile ----------------------------------------------------------
+plasma-mobile               # KDE's phone shell
+plasma-workspace
+plasma-workspace-wayland
+kwin-wayland
+kscreen
+plasma-nm
+plasma-pa
+plasma-discover
+powerdevil                  # Plasma's power management (do NOT also run tlp)
+maliit-keyboard
+qml-module-org-kde-kirigami2
+xdg-desktop-portal
+xdg-desktop-portal-kde
+
+# --- graphics / audio -------------------------------------------------------
+mesa-utils
+libgl1-mesa-dri
+pipewire
+pipewire-pulse
+wireplumber
+alsa-ucm-conf
+
+# --- phone capability -------------------------------------------------------
+network-manager
+modemmanager                # cellular: calls, SMS, data
+bluez
+iio-sensor-proxy            # accelerometer / rotation / ambient light
+upower
+evince
+firefox-esr                 # or a Kirigami browser later
+
+# --- convergence helpers ----------------------------------------------------
+wl-clipboard
+grim                        # screenshots
+wtype
+usbutils
+pciutils
+evtest
+i2c-tools
+
+# --- debugging (drop in a release build) ------------------------------------
+strace
+ltrace
+tcpdump
+gdb
+htop
+openssh-server
+rsync
+
+# --- NOT included on purpose ------------------------------------------------
+# tlp            conflicts with powerdevil; pick one power manager, not two
+# gnome-shell    a second full desktop stack doubles image size and RAM
+# snapd          services + mount units at boot, no place on a phone

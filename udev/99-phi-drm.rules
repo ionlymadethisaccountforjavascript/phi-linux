@@ -1,0 +1,13 @@
+# Wake phi-moded the moment a display is plugged or unplugged.
+#
+# The daemon also polls every couple of seconds, so this rule is a latency
+# optimisation: without it a dock takes up to poll_interval to react. It is
+# deliberately --no-block, because a udev worker waiting on systemd is a
+# classic deadlock.
+ACTION=="change", SUBSYSTEM=="drm", \
+    RUN+="/bin/systemctl --no-block kill -s HUP phi-moded.service"
+
+# USB-C role / altmode changes: the port may negotiate DP before the DRM
+# connector flips to connected, or after it. Either order should wake us.
+ACTION=="change", SUBSYSTEM=="typec", \
+    RUN+="/bin/systemctl --no-block kill -s HUP phi-moded.service"

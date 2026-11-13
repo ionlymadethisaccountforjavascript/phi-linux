@@ -1,0 +1,20 @@
+#!/bin/sh
+# Cap the charge at 80% while docked.
+#
+# Docked use means hours on mains power at a desk, which is the worst case for
+# battery wear: a phone held at 100% and 30 C for a working day loses capacity
+# fast. Paired with the leave-desktop hook that restores the limit, this buys
+# real longevity for a device that is expected to last years.
+set -eu
+
+LIMIT="${PHI_DOCKED_CHARGE_LIMIT:-80}"
+for p in /sys/class/power_supply/battery/charge_control_end_threshold \
+         /sys/class/power_supply/*/charge_control_end_threshold; do
+    [ -w "$p" ] || continue
+    echo "$LIMIT" > "$p" && echo "[phi] charge limit -> $LIMIT% ($p)"
+    exit 0
+done
+
+# Plenty of device trees do not expose this yet. Not an error.
+echo "[phi] no charge_control_end_threshold; skipping charge limit"
+exit 0

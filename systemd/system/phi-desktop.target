@@ -1,0 +1,16 @@
+[Unit]
+Description=Phi Linux desktop posture
+Documentation=file:///usr/share/doc/phi-linux/ARCHITECTURE.md
+AllowIsolate=yes
+
+Wants=phi-moded.service
+After=multi-user.target
+
+# Services that only make sense while docked go here. Think indexers, build
+# agents, background sync: work that would eat a phone's battery, but is free
+# when the device is on mains power and a desk.
+# Wants=phi-tracker-index.service
+# Wants=phi-sync.service
+
+[Install]
+WantedBy=multi-user.target

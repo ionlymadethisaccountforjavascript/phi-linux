@@ -1,0 +1,15 @@
+[Unit]
+Description=Phi Linux phone posture
+Documentation=file:///usr/share/doc/phi-linux/ARCHITECTURE.md
+AllowIsolate=yes
+
+# The phone posture is the default: a phone that boots as a desktop is a bug.
+Wants=phi-moded.service
+After=multi-user.target
+
+# Posture-specific long-running services belong here. Keep this list short:
+# every unit in this target runs on battery.
+# Wants=phi-sensors.service
+
+[Install]
+WantedBy=multi-user.target

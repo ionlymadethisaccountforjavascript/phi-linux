@@ -1,0 +1,105 @@
+#!/bin/sh
+# Phi Linux initramfs PID 1.
+#
+# Responsibilities, in order:
+#   1. mount kernel filesystems
+#   2. load any modules shipped in the initramfs
+#   3. find the real root filesystem and switch_root into it
+#   4. if that fails, stay in the initramfs and give a shell instead of panicking
+#
+# Kernel cmdline parameters understood by Phi:
+#   phi.root=<spec>     root device: /dev/sda2, LABEL=phi-root, UUID=..., PARTUUID=...
+#   phi.rootfstype=<t>  filesystem type (default: autodetect by mount)
+#   phi.rootflags=<o>   mount options (default: ro)
+#   phi.debug           drop to a shell before switch_root
+#   phi.rescue          never switch_root; shell only
+#   phi.mode=phone|desktop   initial posture hint, currently only the target
+#                       selector reads this; the mode manager owns the real state
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+msg() { printf '\033[1;36m[phi]\033[0m %s\n' "$*" >/dev/tty0 2>/dev/null || printf '\033[1;36m[phi]\033[0m %s\n' "$*"; }
+die() { msg "$*"; exec /bin/sh; }
+
+mount -t proc     proc     /proc 2>/dev/null || true
+mount -t sysfs    sysfs    /sys  2>/dev/null || true
+mount -t devtmpfs devtmpfs /dev  2>/dev/null || true
+mkdir -p /dev/pts /dev/shm /run /tmp /sys/kernel/debug
+mount -t devpts   devpts   /dev/pts 2>/dev/null || true
+mount -t tmpfs    shm      /dev/shm 2>/dev/null || true
+mount -t tmpfs    tmp      /run    2>/dev/null || true
+
+cmdline_get() {
+    # print the value of a kernel cmdline key, or nothing
+    tr ' ' '\n' < /proc/cmdline | sed -n "s/^$1=//p" | head -n1
+}
+
+has_flag() {
+    tr ' ' '\n' < /proc/cmdline | grep -qx "$1"
+}
+
+# ---------------------------------------------------------------------------
+# modules (Debian kernels ship most drivers as modules)
+# ---------------------------------------------------------------------------
+if [ -d /lib/modules ]; then
+    kver="$(uname -r)"
+    if [ -f "/lib/modules/$kver/modules.dep" ] && command -v modprobe >/dev/null 2>&1; then
+        modprobe -a -q \
+            ext4 squashfs overlay loop zram \
+            typec tcpm dwc3 xhci-hcd \
+            panel-edp drm-display-helper \
+            2>/dev/null || true
+    else
+        msg "no module tree for $kver; kernel must have drivers built in"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# locate root
+# ---------------------------------------------------------------------------
+ROOT="$(cmdline_get phi.root)"
+[ -z "$ROOT" ] && ROOT="$(cmdline_get root)"
+FSTYPE="$(cmdline_get phi.rootfstype)"
+ROOTFLAGS="$(cmdline_get phi.rootflags)"
+ROOTFLAGS="${ROOTFLAGS:-ro}"
+
+[ -z "$ROOT" ] && die "no phi.root= on the kernel cmdline; staying in initramfs"
+
+msg "phi: root=$ROOT flags=$ROOTFLAGS"
+
+# USB and storage take a moment to enumerate on real hardware.
+tries=0
+while [ ! -e "$ROOT" ] && [ $tries -lt 20 ]; do
+    case "$ROOT" in
+        /dev/*) sleep 0.25 ;;
+        *)      break ;;
+    esac
+    tries=$((tries + 1))
+done
+
+mkdir -p /newroot
+if [ -n "$FSTYPE" ]; then
+    mount -t "$FSTYPE" -o "$ROOTFLAGS" "$ROOT" /newroot || die "mount $ROOT failed"
+else
+    mount -o "$ROOTFLAGS" "$ROOT" /newroot || die "mount $ROOT failed (try phi.rootfstype=)"
+fi
+
+has_flag phi.debug && { msg "phi.debug: shell before switch_root"; exec /bin/sh; }
+has_flag phi.rescue && die "phi.rescue: staying in initramfs"
+
+# ---------------------------------------------------------------------------
+# hand off
+# ---------------------------------------------------------------------------
+for d in dev proc sys run; do
+    if [ -d "/newroot/$d" ]; then
+        mount --move "/$d" "/newroot/$d" 2>/dev/null || true
+    fi
+done
+
+if [ ! -x /newroot/sbin/init ] && [ ! -x /newroot/usr/sbin/init ] && [ ! -x /newroot/lib/systemd/systemd ]; then
+    die "root at $ROOT has no init; staying in initramfs"
+fi
+
+msg "phi: switching root to $ROOT"
+exec switch_root /newroot /sbin/init
